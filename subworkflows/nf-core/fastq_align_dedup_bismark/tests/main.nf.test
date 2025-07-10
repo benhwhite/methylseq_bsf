@@ -11,6 +11,7 @@ nextflow_workflow {
     tag "bismark/align"
     tag "samtools/sort"
     tag "samtools/index"
+    tag "picard/collectinsertsizemetrics"
     tag "bismark/deduplicate"
     tag "bismark/methylationextractor"
     tag "bismark/coverage2cytosine"

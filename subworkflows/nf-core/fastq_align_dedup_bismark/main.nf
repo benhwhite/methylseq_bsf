@@ -4,6 +4,7 @@ include { SAMTOOLS_SORT                } from '../../../modules/nf-core/samtools
 include { SAMTOOLS_INDEX               } from '../../../modules/nf-core/samtools/index/main'
 include { BISMARK_METHYLATIONEXTRACTOR } from '../../../modules/nf-core/bismark/methylationextractor/main'
 include { BISMARK_COVERAGE2CYTOSINE    } from '../../../modules/nf-core/bismark/coverage2cytosine/main'
+include { PICARD_COLLECTINSERTSIZEMETRICS        } from '../../../modules/nf-core/picard/collectinsertsizemetrics/main'
 include { BISMARK_REPORT               } from '../../../modules/nf-core/bismark/report/main'
 include { BISMARK_SUMMARY              } from '../../../modules/nf-core/bismark/summary/main'
 
@@ -27,6 +28,7 @@ workflow FASTQ_ALIGN_DEDUP_BISMARK {
     ch_coverage2cytosine_coverage = Channel.empty()
     ch_coverage2cytosine_report   = Channel.empty()
     ch_coverage2cytosine_summary  = Channel.empty()
+    ch_picard_metrics             = Channel.empty()
     ch_bismark_report             = Channel.empty()
     ch_bismark_summary            = Channel.empty()
     ch_multiqc_files              = Channel.empty()
@@ -72,6 +74,16 @@ workflow FASTQ_ALIGN_DEDUP_BISMARK {
         SAMTOOLS_SORT.out.bam
     )
     ch_versions = ch_versions.mix(SAMTOOLS_INDEX.out.versions)
+
+    /*
+     * MODULE: Run Picard CollectInsertSizeMetrics
+     */
+    PICARD_COLLECTINSERTSIZEMETRICS (
+        SAMTOOLS_SORT.out.bam,  // Use sorted BAM from samtools
+//        params.picard_args      // Add picard-specific parameters to nextflow.config
+    )
+    ch_picard_metrics = PICARD_COLLECTINSERTSIZEMETRICS.out.metrics
+    ch_versions       = ch_versions.mix(PICARD_COLLECTINSERTSIZEMETRICS.out.versions)
 
     /*
      * Run bismark_methylation_extractor
@@ -135,6 +147,7 @@ workflow FASTQ_ALIGN_DEDUP_BISMARK {
                             .mix(ch_methylation_report.collect{ meta, report -> report })
                             .mix(ch_methylation_mbias.collect{ meta, mbias -> mbias })
                             .mix(ch_bismark_report.collect{ meta, report -> report })
+                            .mix(ch_picard_metrics.collect{ meta, metrics -> metrics })
 
     emit:
     bam                        = SAMTOOLS_SORT.out.bam         // channel: [ val(meta), [ bam ] ]
@@ -147,6 +160,7 @@ workflow FASTQ_ALIGN_DEDUP_BISMARK {
     methylation_coverage       = ch_methylation_coverage       // channel: [ val(meta), [ coverage ] ]
     methylation_report         = ch_methylation_report         // channel: [ val(meta), [ report ] ]
     methylation_mbias          = ch_methylation_mbias          // channel: [ val(meta), [ mbias ] ]
+    picard_collectinsertmetrics = ch_picard_metrics            // channel: [ val (meta), [ insert_metrics ]]
     bismark_report             = ch_bismark_report             // channel: [ val(meta), [ report ] ]
     bismark_summary            = ch_bismark_summary            // channel: [ val(meta), [ summary ] ]
     multiqc                    = ch_multiqc_files              // path: *{html,txt}
